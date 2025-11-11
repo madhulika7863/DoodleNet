@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DoodleNet</title>
+  <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #0072ff;
+      --secondary: #00c6ff;
+      --bg-light: #eef5ff;
+      --white: #ffffff;
+      --text: #333;
+      --shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Poppins", sans-serif;
+      background: linear-gradient(135deg, #dcecff, #f5f9ff);
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+      header {
+    width: 100%;
+    padding: 22px 0;
+    font-size: 1.9rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+    text-transform: uppercase;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(90deg, #0072ff, #00c6ff, #0072ff);
+    background-size: 300% 300%;
+    animation: gradientShift 6s ease infinite;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Shimmer glow inside header */
+  header::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -75%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0));
+    transform: skewX(-25deg);
+    animation: shimmer 3s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { left: -75%; }
+    100% { left: 125%; }
+  }
+
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Optional hover effect */
+  header:hover {
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+    letter-spacing: 1.5px;
+    transition: all 0.3s ease;
+  }
+
+    .board-wrapper {
+      background: rgba(255, 255, 255, 0.95);
+      margin-top: 35px;
+      padding: 25px;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.3s ease;
+    }
+
+    .board-wrapper:hover {
+      transform: translateY(-2px);
+    }
+
+    #controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: var(--white);
+      padding: 15px 25px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    button {
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      border: none;
+      color: var(--white);
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    button:hover {
+      background: linear-gradient(90deg, #38ef7d, #11998e);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    input[type="color"] {
+      border: none;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+      transition: transform 0.2s ease;
+    }
+
+    input[type="color"]:hover {
+      transform: scale(1.1);
+    }
+
+    input[type="range"] {
+      width: 120px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    canvas {
+      border: 3px solid var(--primary);
+      border-radius: 14px;
+      background: var(--white);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+      margin-bottom: 15px;
+      max-width: 90%;
+      transition: box-shadow 0.3s ease;
+    }
+
+    canvas:hover {
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    #userList {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px 18px;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      font-size: 15px;
+      color: #444;
+      margin-top: 10px;
+    }
+
+    footer {
+      margin-top: 30px;
+      color: #666;
+      font-size: 14px;
+    }
+
+    @media (max-width: 768px) {
+      #controls {
+        flex-direction: column;
+        gap: 10px;
+      }
+      canvas {
+        width: 95%;
+        height: 400px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>DoodleNet</header>
+
+  <div class="board-wrapper">
+    <div id="controls">
+      <input type="color" id="colorPicker" value="#000000">
+      <input type="range" id="thickness" min="1" max="10" value="2">
+      <button onclick="undo()">Undo</button>
+      <button onclick="clearBoard()">Clear</button>
+      <button onclick="saveImage()">Save</button>
+    </div>
+
+    <canvas id="board" width="900" height="500"></canvas>
+    <div id="userList">Connected Users: <span id="users"></span></div>
+  </div>
+
+  <footer>Built using Flask + Socket.IO</footer>
+
+  <!-- JS same as before -->
+  <script>
+    const socket = io();
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d");
+
+    let drawing = false;
+    let color = document.getElementById("colorPicker").value;
+    let thickness = document.getElementById("thickness").value;
+    let paths = [];
+    let currentPath = [];
+
+    document.getElementById("colorPicker").addEventListener("change", e => color = e.target.value);
+    document.getElementById("thickness").addEventListener("input", e => thickness = e.target.value);
+
+    canvas.addEventListener("mousedown", e => {
+      drawing = true;
+      currentPath = [];
+      ctx.beginPath();
+    });
+
+    canvas.addEventListener("mouseup", () => {
+      drawing = false;
+      if (currentPath.length > 0) paths.push(currentPath);
+    });
+
+    canvas.addEventListener("mousemove", draw);
+
+    function draw(e) {
+      if (!drawing) return;
+      const x = e.offsetX;
+      const y = e.offsetY;
+      ctx.lineWidth = thickness;
+      ctx.strokeStyle = color;
+      ctx.lineCap = "round";
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      currentPath.push({x, y, color, thickness});
+      socket.emit("draw_event", {x, y, color, thickness});
+    }
+
+    socket.on("draw_event", data => {
+      ctx.lineWidth = data.thickness;
+      ctx.strokeStyle = data.color;
+      ctx.lineCap = "round";
+      ctx.lineTo(data.x, data.y);
+      ctx.stroke();
+    });
+
+    function clearBoard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      paths = [];
+      socket.emit("clear_event");
+    }
+
+    socket.on("clear_event", () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      paths = [];
+    });
+
+    function undo() {
+      if (paths.length === 0) return;
+      paths.pop();
+      redrawAll();
+      socket.emit("undo_event");
+    }
+
+    socket.on("undo_event", () => {
+      paths.pop();
+      redrawAll();
+    });
+
+    function redrawAll() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      paths.forEach(path => {
+        ctx.beginPath();
+        path.forEach((p) => {
+          ctx.lineWidth = p.thickness;
+          ctx.strokeStyle = p.color;
+          ctx.lineCap = "round";
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+        });
+      });
+    }
+
+    function saveImage() {
+      const link = document.createElement('a');
+      link.download = 'SketchSync.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    }
+
+    const userList = document.getElementById("users");
+    let users = [];
+
+    socket.on("user_joined", data => {
+      users.push(data.user);
+      updateUserList();
+    });
+
+    socket.on("user_left", data => {
+      users = users.filter(u => u !== data.user);
+      updateUserList();
+    });
+
+    function updateUserList() {
+      userList.textContent = users.length > 0 ? users.join(", ") : "None";
+    }
+  </script>
+</body>
+</html>
